@@ -75,7 +75,7 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	// This holds the index of the child node that was split and it is used
 	// to determine in what position to insert the new child node.
 	var indexOfSplitNode = -1
-	var newRigthChildNode *Node
+	var newSplitRigthChildNode *Node
 
 	// If node has children, we must traverse to find the node where the new key must be
 	// inserted.
@@ -89,13 +89,18 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 		}
 
 		// If no index, new key is bigger than existing keys so we move to most rigth node.
+		// Most right node should always exist since child nodes == keys+1
 		if indexOfSplitNode == -1 {
-			indexOfSplitNode = len(node.Children) - 1
+			indexOfSplitNode = len(node.Keys)
 		}
 
 		// If key and new child node is returned it means child node was split.
-		newRigthChildNode, key = bt.insert(node.Children[indexOfSplitNode], key)
-		if newRigthChildNode == nil {
+		// fmt.Printf("Index %d, len of nodes %d, keys of node %v, key to insert %d \n", indexOfSplitNode, len(node.Children), node.Keys, key)
+		// bt.PrintInLevelOrder()
+		// fmt.Println("------------------")
+
+		newSplitRigthChildNode, key = bt.insert(node.Children[indexOfSplitNode], key)
+		if newSplitRigthChildNode == nil {
 			return nil, Key{}
 		}
 	}
@@ -105,6 +110,7 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	// contains the keys bigger than the middle key. These will be returned to the parent
 	// so that the middle can be inserted and new child node appended if it also has space
 	// otherwise parent is also split.
+	var newRigthChildNode *Node
 	if len(node.Keys) == 2*bt.Degree-1 {
 		// Store the middle key that needs to be sent upwards
 		// to the parent node.
@@ -129,8 +135,14 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 		// left node otherwise in the rigth node.
 		if key.K < middleKey.K {
 			node.insertInSortedOrder(key)
+			if newSplitRigthChildNode != nil {
+				node.Children = append(node.Children, newSplitRigthChildNode)
+			}
 		} else {
 			newRigthChildNode.insertInSortedOrder(key)
+			if newSplitRigthChildNode != nil {
+				newRigthChildNode.Children = append(newRigthChildNode.Children, newSplitRigthChildNode)
+			}
 		}
 
 		return newRigthChildNode, middleKey
@@ -140,7 +152,7 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	// We also check if one of its child nodes was split so that a new child node must
 	// added to the list of children.
 	node.insertInSortedOrder(key)
-	if newRigthChildNode != nil {
+	if newSplitRigthChildNode != nil {
 		// We check if the len of the children allows to shift children to the right
 		// otherwise we just add the split node at the end of the slice
 		if len(node.Children) > indexOfSplitNode+1 {
@@ -149,12 +161,13 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 			copy(tempRigthChildren, node.Children[indexOfSplitNode+1:])
 
 			node.Children = append(make([]*Node, 0, bt.Degree), node.Children[:indexOfSplitNode+1]...)
-			node.Children = append(node.Children, newRigthChildNode)
+			node.Children = append(node.Children, newSplitRigthChildNode)
 			node.Children = append(node.Children, tempRigthChildren...)
 		} else {
-			node.Children = append(node.Children, newRigthChildNode)
+			node.Children = append(node.Children, newSplitRigthChildNode)
 		}
 	}
+
 	return nil, Key{}
 }
 
@@ -196,21 +209,26 @@ func (bt *BeeTree) PrintInLevelOrder() {
 
 	// We create a slice with the nodes at each level, we start with root so
 	// it is a slice of one node.
-	bt.printInLevelOrder([]*Node{bt.Root})
+	nodes := make([]map[int]*Node, 0)
+	nodes = append(nodes, map[int]*Node{-1: bt.Root})
+	bt.printInLevelOrder(nodes)
 }
 
-func (bt *BeeTree) printInLevelOrder(nodes []*Node) {
-	childrenNodes := []*Node{}
+func (bt *BeeTree) printInLevelOrder(nodes []map[int]*Node) {
+	childrenNodes := make([]map[int]*Node, 0)
 
 	// For every node in this level we print their keys and then create
 	// a slice with the children nodes.
 	for i, n := range nodes {
-		for _, k := range n.Keys {
-			fmt.Print(i, ":", k.K, " ")
-		}
+		for parentIndex, node := range n {
+			for _, key := range node.Keys {
+				fmt.Print(parentIndex, ":", i, ":", key, " ")
+			}
 
-		if len(n.Children) > 0 {
-			childrenNodes = append(childrenNodes, n.Children...)
+			for _, c := range node.Children {
+				childrenWithParentIndex := map[int]*Node{i: c}
+				childrenNodes = append(childrenNodes, childrenWithParentIndex)
+			}
 		}
 	}
 	fmt.Println()

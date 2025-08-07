@@ -844,25 +844,32 @@ func (t *BTree) LevelOrderTraversalPrint() {
 
 	// We create a queue with the nodes at each level, we start with root so
 	// it is a queue of one node.
-	t.levelOrderTraversalPrint([]*node{t.root})
+	nodes := make([]map[int]*node, 0)
+	nodes = append(nodes, map[int]*node{-1: t.root})
+	t.levelOrderTraversalPrint(nodes)
 }
 
-func (t *BTree) levelOrderTraversalPrint(queue []*node) {
-	childrenQueue := []*node{}
+func (t *BTree) levelOrderTraversalPrint(nodes []map[int]*node) {
+	childrenNodes := make([]map[int]*node, 0)
 
-	for i, n := range queue {
-		for _, it := range n.items {
-			fmt.Print(i, ":", it, " ")
-		}
+	// For every node in this level we print their keys and then create
+	// a slice with the children nodes.
+	for i, n := range nodes {
+		for parentIndex, nn := range n {
+			for _, key := range nn.items {
+				fmt.Print(parentIndex, ":", i, ":", key, " ")
+			}
 
-		if len(n.children) > 0 {
-			childrenQueue = append(childrenQueue, n.children...)
+			for _, c := range nn.children {
+				childrenWithParentIndex := map[int]*node{i: c}
+				childrenNodes = append(childrenNodes, childrenWithParentIndex)
+			}
 		}
 	}
 	fmt.Println()
 
-	if len(childrenQueue) > 0 {
-		t.levelOrderTraversalPrint(childrenQueue)
+	if len(childrenNodes) > 0 {
+		t.levelOrderTraversalPrint(childrenNodes)
 	}
 }
 
