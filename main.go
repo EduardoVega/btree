@@ -2,27 +2,50 @@ package main
 
 import (
 	"fmt"
-	"go-ds/ds"
+
+	"go-ds/beetree"
+	"go-ds/gbtree"
 )
 
 func main() {
-	// myBTree := ds.NewBTree(2)
-	// fmt.Println(myBTree)
+	// BeeTree
+	// startTime := time.Now()
+	bt := beetree.NewBeetree(2)
+	bt.Insert(beetree.Key{K: 50})
+	bt.Insert(beetree.Key{K: 20})
+	// bee.ReplaceOrInsert(beetree.BTreeItem{K: 20, V: "mule"})
+	bt.Insert(beetree.Key{K: 80})
+	bt.Insert(beetree.Key{K: 90})
+	bt.Insert(beetree.Key{K: 70})
+	bt.Insert(beetree.Key{K: 60})
+	bt.Insert(beetree.Key{K: 65})
+	bt.Insert(beetree.Key{K: 69})
 
-	// myBTree.Insert(10, "v1")
-	// fmt.Println(len(myBTree.RootNode.Data))
+	k := bt.Get(61)
+	fmt.Println(k)
 
-	linkedList := ds.NewLList()
-	linkedList.Set(10, "v1")
-	linkedList.Set(2, "v2")
-	linkedList.Set(8, "v3")
-	fmt.Println(linkedList.Len())
-	linkedList.Print()
-	linkedList.Get(10)
+	// fmt.Println("Time:", time.Since(startTime))
+	// fmt.Println(bee)
+	bt.PrintInLevelOrder()
 
-	linkedList.Delete(2)
-	fmt.Println(linkedList.Len())
-	linkedList.Print()
+	fmt.Println("--------------------")
 
-	linkedList.Get(2)
+	// Google BTree
+	// startTime = time.Now()
+	gtree := gbtree.New(2)
+	gtree.ReplaceOrInsert(gbtree.Int(50))
+	gtree.ReplaceOrInsert(gbtree.Int(20))
+	//gtree.ReplaceOrInsert(gbtree.Int(20))
+	gtree.ReplaceOrInsert(gbtree.Int(80))
+	gtree.ReplaceOrInsert(gbtree.Int(90))
+	gtree.ReplaceOrInsert(gbtree.Int(70))
+	gtree.ReplaceOrInsert(gbtree.Int(60))
+	gtree.ReplaceOrInsert(gbtree.Int(65))
+	gtree.ReplaceOrInsert(gbtree.Int(69))
+	//gtree.ReplaceOrInsert(gbtree.Int(60))
+	//gtree.ReplaceOrInsert(gbtree.Int(15))
+	// fmt.Println("Time:", time.Since(startTime))
+	// fmt.Println(gtree)
+	gtree.LevelOrderTraversalPrint()
+
 }
