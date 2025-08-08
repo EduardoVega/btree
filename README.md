@@ -10,6 +10,10 @@
 [ ] Implement Print operation.
 [ ] Read about copy on write.
 
+```
+To test logic 
+10, 20, 30, 40, 50, 60, 5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105
+
 {44}
 {4}
 {28}
@@ -78,3 +82,4 @@ panic: runtime error: index out of range [1] with length 1
 {9}
 {0}
 {49}
+```

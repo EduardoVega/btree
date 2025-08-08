@@ -31,7 +31,7 @@ func NewNode(degree int) *Node {
 	}
 }
 
-func (n *Node) insertInSortedOrder(key Key) {
+func (n *Node) insertInSortedOrder(key Key) int {
 	for i, k := range n.Keys {
 		if key.K < k.K {
 			rigthKeys := make([]Key, len(n.Keys[i:]))
@@ -40,10 +40,11 @@ func (n *Node) insertInSortedOrder(key Key) {
 			n.Keys = n.Keys[:i]
 			n.Keys = append(n.Keys, key)
 			n.Keys = append(n.Keys, rigthKeys...)
-			return
+			return i
 		}
 	}
 	n.Keys = append(n.Keys, key)
+	return len(n.Keys) - 1
 }
 
 func NewBeetree(degree int) *BeeTree {
@@ -77,95 +78,126 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	var indexOfSplitNode = -1
 	var newSplitRigthChildNode *Node
 
-	// If node has children, we must traverse to find the node where the new key must be
-	// inserted.
-	if len(node.Children) > 0 {
-		// We search first if key should be in left nodes.
-		for i, k := range node.Keys {
-			if key.K < k.K {
-				indexOfSplitNode = i
-				break
-			}
-		}
-
-		// If no index, new key is bigger than existing keys so we move to most rigth node.
-		// Most right node should always exist since child nodes == keys+1
-		if indexOfSplitNode == -1 {
-			indexOfSplitNode = len(node.Keys)
-		}
-
-		// If key and new child node is returned it means child node was split.
-		// fmt.Printf("Index %d, len of nodes %d, keys of node %v, key to insert %d \n", indexOfSplitNode, len(node.Children), node.Keys, key)
-		// bt.PrintInLevelOrder()
-		// fmt.Println("------------------")
-
-		newSplitRigthChildNode, key = bt.insert(node.Children[indexOfSplitNode], key)
-		if newSplitRigthChildNode == nil {
-			return nil, Key{}
+	// Check if key already exists in current node.
+	var keyExists bool
+	var indexOfDuplicatedKey int
+	for i, k := range node.Keys {
+		if key.K == k.K {
+			keyExists = true
+			indexOfDuplicatedKey = i
+			break
 		}
 	}
 
-	// If node is full (can not hold more keys), we must split it before adding the
-	// new key. The split will get the middle key and create a new child node that
-	// contains the keys bigger than the middle key. These will be returned to the parent
-	// so that the middle can be inserted and new child node appended if it also has space
-	// otherwise parent is also split.
-	var newRigthChildNode *Node
-	if len(node.Keys) == 2*bt.Degree-1 {
-		// Store the middle key that needs to be sent upwards
-		// to the parent node.
-		middleIndex := bt.Degree - 1
-		middleKey := node.Keys[middleIndex]
-
-		// Create new child node with keys bigger than middle key and their children.
-		newRigthChildNode = NewNode(bt.Degree)
-		newRigthChildNode.Keys = append(newRigthChildNode.Keys, node.Keys[middleIndex+1:]...)
-		if len(node.Children) >= middleIndex+1 {
-			newRigthChildNode.Children = append(newRigthChildNode.Children, node.Children[middleIndex+1:]...)
-		}
-
-		// Set up existing node and update its keys to leave only smaller than middle key and their children.
-		node.Keys = node.Keys[:middleIndex]
-		if len(node.Children) >= middleIndex+1 {
-			node.Children = node.Children[:middleIndex+1]
-		}
-
-		// Insert new key in left or right new child node.
-		// If new key is less than the middle key it should be in the
-		// left node otherwise in the rigth node.
-		if key.K < middleKey.K {
-			node.insertInSortedOrder(key)
-			if newSplitRigthChildNode != nil {
-				node.Children = append(node.Children, newSplitRigthChildNode)
+	if !keyExists {
+		// If node has children, we must traverse to find the node where the new key must be
+		// inserted.
+		if len(node.Children) > 0 {
+			// We search first if key should be in left nodes.
+			for i, k := range node.Keys {
+				if key.K < k.K {
+					indexOfSplitNode = i
+					break
+				}
 			}
-		} else {
-			newRigthChildNode.insertInSortedOrder(key)
-			if newSplitRigthChildNode != nil {
-				newRigthChildNode.Children = append(newRigthChildNode.Children, newSplitRigthChildNode)
+
+			// If no index, new key is bigger than existing keys so we move to most rigth node.
+			// Most right node should always exist since child nodes == keys+1
+			if indexOfSplitNode == -1 {
+				indexOfSplitNode = len(node.Keys)
+			}
+
+			newSplitRigthChildNode, key = bt.insert(node.Children[indexOfSplitNode], key)
+			if newSplitRigthChildNode == nil {
+				return nil, Key{}
 			}
 		}
 
-		return newRigthChildNode, middleKey
+		// If node is full (can not hold more keys), we must split it before adding the
+		// new key. The split will get the middle key and create a new child node that
+		// contains the keys bigger than the middle key. These will be returned to the parent
+		// so that the middle can be inserted and new child node appended if it also has space
+		// otherwise parent is also split.
+		var newRigthChildNode *Node
+		if len(node.Keys) == 2*bt.Degree-1 {
+			// Store the middle key that needs to be sent upwards
+			// to the parent node.
+			middleIndex := bt.Degree - 1
+			middleKey := node.Keys[middleIndex]
+
+			// Create new child node with keys bigger than middle key and their children.
+			newRigthChildNode = NewNode(bt.Degree)
+			newRigthChildNode.Keys = append(newRigthChildNode.Keys, node.Keys[middleIndex+1:]...)
+			if len(node.Children) >= middleIndex+1 {
+				newRigthChildNode.Children = append(newRigthChildNode.Children, node.Children[middleIndex+1:]...)
+			}
+
+			// Set up existing node and update its keys to leave only smaller than middle key and their children.
+			node.Keys = node.Keys[:middleIndex]
+			if len(node.Children) >= middleIndex+1 {
+				node.Children = node.Children[:middleIndex+1]
+			}
+
+			// Insert new key in left or right new child node.
+			// If new key is less than the middle key it should be in the
+			// left node otherwise in the right node.
+			if key.K < middleKey.K {
+				node.insertInSortedOrder(key)
+				if newSplitRigthChildNode != nil {
+					// Insert the split child at the correct position in the left node
+					insertPos := indexOfSplitNode + 1
+					if insertPos < len(node.Children) {
+						node.Children = append(node.Children, nil)
+						copy(node.Children[insertPos+1:], node.Children[insertPos:])
+						node.Children[insertPos] = newSplitRigthChildNode
+					} else {
+						node.Children = append(node.Children, newSplitRigthChildNode)
+					}
+				}
+			} else {
+				indexOfKey := newRigthChildNode.insertInSortedOrder(key)
+				if newSplitRigthChildNode != nil {
+					// Insert the split child at the correct position in the right node
+					// Adjust index for the right node (subtract the keys that went to left)
+					adjustedIndex := indexOfSplitNode - (middleIndex + 1)
+					insertPos := adjustedIndex + 1
+
+					if insertPos != indexOfKey+1 {
+						panic(fmt.Sprintf("Index of key + 1 should match insert position: %d != %d", insertPos, indexOfKey+1))
+					}
+
+					if insertPos < len(newRigthChildNode.Children) {
+						newRigthChildNode.Children = append(newRigthChildNode.Children, nil)
+						copy(newRigthChildNode.Children[insertPos+1:], newRigthChildNode.Children[insertPos:])
+						newRigthChildNode.Children[insertPos] = newSplitRigthChildNode
+					} else {
+						newRigthChildNode.Children = append(newRigthChildNode.Children, newSplitRigthChildNode)
+					}
+				}
+			}
+
+			return newRigthChildNode, middleKey
+		}
 	}
 
 	// When node has capacity to hold another key we just insert it.
 	// We also check if one of its child nodes was split so that a new child node must
 	// added to the list of children.
-	node.insertInSortedOrder(key)
-	if newSplitRigthChildNode != nil {
-		// We check if the len of the children allows to shift children to the right
-		// otherwise we just add the split node at the end of the slice
-		if len(node.Children) > indexOfSplitNode+1 {
-			lenRigthChildren := len(node.Children[indexOfSplitNode+1:])
-			tempRigthChildren := make([]*Node, lenRigthChildren)
-			copy(tempRigthChildren, node.Children[indexOfSplitNode+1:])
+	if keyExists {
+		node.Keys[indexOfDuplicatedKey] = key
+	} else {
+		node.insertInSortedOrder(key)
+	}
 
-			node.Children = append(make([]*Node, 0, bt.Degree), node.Children[:indexOfSplitNode+1]...)
-			node.Children = append(node.Children, newSplitRigthChildNode)
-			node.Children = append(node.Children, tempRigthChildren...)
-		} else {
-			node.Children = append(node.Children, newSplitRigthChildNode)
-		}
+	if newSplitRigthChildNode != nil {
+		// Insert the new split child at the correct position
+		// The new child should be inserted at indexOfSplitNode + 1
+		insertPos := indexOfSplitNode + 1
+
+		// Make room for the new child
+		node.Children = append(node.Children, nil)
+		copy(node.Children[insertPos+1:], node.Children[insertPos:])
+		node.Children[insertPos] = newSplitRigthChildNode
 	}
 
 	return nil, Key{}
@@ -180,22 +212,23 @@ func (bt *BeeTree) Get(key int) Key {
 }
 
 func (bt *BeeTree) get(node *Node, key int) Key {
-	if len(node.Children) > 0 {
-		// We search first if key should be in left nodes.
-		for i, k := range node.Keys {
-			if key < k.K {
-				return bt.get(node.Children[i], key)
-			}
-		}
-
-		// If new key is bigger to existing keys we move to most rigth node.
-		return bt.get(node.Children[len(node.Keys)], key)
-	}
-
-	for _, k := range node.Keys {
+	// Check if key exists in current node
+	for i, k := range node.Keys {
 		if key == k.K {
 			return k
 		}
+		if key < k.K {
+			// Key should be in left child
+			if len(node.Children) > i {
+				return bt.get(node.Children[i], key)
+			}
+			break
+		}
+	}
+
+	// If we reach here and have children, key should be in rightmost child
+	if len(node.Children) > 0 {
+		return bt.get(node.Children[len(node.Keys)], key)
 	}
 
 	return Key{}
