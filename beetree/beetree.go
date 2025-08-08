@@ -142,10 +142,10 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 			// If new key is less than the middle key it should be in the
 			// left node otherwise in the right node.
 			if key.K < middleKey.K {
-				node.insertInSortedOrder(key)
+				indexOfInsertedKey := node.insertInSortedOrder(key)
 				if newSplitRigthChildNode != nil {
 					// Insert the split child at the correct position in the left node
-					insertPos := indexOfSplitNode + 1
+					insertPos := indexOfInsertedKey + 1
 					if insertPos < len(node.Children) {
 						node.Children = append(node.Children, nil)
 						copy(node.Children[insertPos+1:], node.Children[insertPos:])
@@ -155,17 +155,12 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 					}
 				}
 			} else {
-				indexOfKey := newRigthChildNode.insertInSortedOrder(key)
+				indexOfInsertedKey := newRigthChildNode.insertInSortedOrder(key)
 				if newSplitRigthChildNode != nil {
-					// Insert the split child at the correct position in the right node
-					// Adjust index for the right node (subtract the keys that went to left)
-					adjustedIndex := indexOfSplitNode - (middleIndex + 1)
-					insertPos := adjustedIndex + 1
-
-					if insertPos != indexOfKey+1 {
-						panic(fmt.Sprintf("Index of key + 1 should match insert position: %d != %d", insertPos, indexOfKey+1))
-					}
-
+					// Insert the split child at the correct position in the right node by
+					// using the index of the key that was inserted. The split child node should be
+					// inserted one position after the index of the key.
+					insertPos := indexOfInsertedKey + 1
 					if insertPos < len(newRigthChildNode.Children) {
 						newRigthChildNode.Children = append(newRigthChildNode.Children, nil)
 						copy(newRigthChildNode.Children[insertPos+1:], newRigthChildNode.Children[insertPos:])
@@ -186,18 +181,18 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	if keyExists {
 		node.Keys[indexOfDuplicatedKey] = key
 	} else {
-		node.insertInSortedOrder(key)
-	}
+		indexOfInsertedKey := node.insertInSortedOrder(key)
 
-	if newSplitRigthChildNode != nil {
-		// Insert the new split child at the correct position
-		// The new child should be inserted at indexOfSplitNode + 1
-		insertPos := indexOfSplitNode + 1
+		if newSplitRigthChildNode != nil {
+			// Insert the new split child at the correct position
+			// The new child should be inserted at indexOfInsertedKey + 1
+			insertPos := indexOfInsertedKey + 1
 
-		// Make room for the new child
-		node.Children = append(node.Children, nil)
-		copy(node.Children[insertPos+1:], node.Children[insertPos:])
-		node.Children[insertPos] = newSplitRigthChildNode
+			// Make room for the new child
+			node.Children = append(node.Children, nil)
+			copy(node.Children[insertPos+1:], node.Children[insertPos:])
+			node.Children[insertPos] = newSplitRigthChildNode
+		}
 	}
 
 	return nil, Key{}
