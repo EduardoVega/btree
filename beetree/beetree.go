@@ -229,6 +229,12 @@ func (bt *BeeTree) get(node *Node, key int) Key {
 	return Key{}
 }
 
+// PrintInLevelOrder prints the keys in the BeeTree in level order.
+//
+// Every printed key will have its parent index, node index and key value, all
+// separated by colons.
+//
+// Example: 0:0:{20} -> 0[parent index]:0[node index]:{20}key
 func (bt *BeeTree) PrintInLevelOrder() {
 	// Empty btree.
 	if bt.Root == nil {
@@ -263,5 +269,52 @@ func (bt *BeeTree) printInLevelOrder(nodes []map[int]*Node) {
 
 	if len(childrenNodes) > 0 {
 		bt.printInLevelOrder(childrenNodes)
+	}
+}
+
+func (bt *BeeTree) Delete(key Key) {
+	// If btree is empty, we return.
+	if bt.Root == nil {
+		return
+	}
+
+	bt.delete(bt.Root, key)
+}
+
+func (bt *BeeTree) delete(node *Node, key Key) {
+	// Step one, find the node where key should be living.
+	// Initially, instead of looping through the list of keys, we check
+	// if the key is in the range of keys that the node has.
+	indexOfChildToMove := -1
+	if len(node.Keys) >= 1 {
+		// If key is smaller than the current range, we move to leftmost child (first child).
+		if key.K < node.Keys[0].K {
+			indexOfChildToMove = 0
+		} else if key.K > node.Keys[len(node.Keys)-1].K {
+			// If key is bigger than the current range, we move to rightmost child (last child).
+			// Remember that children are always +1 than keys. If we have 3 keys, there must be 4 children.
+			indexOfChildToMove = len(node.Keys)
+		} else {
+			// If key is not smaller or bigger than the current range of keys, we need
+			// to find if it is in this node or in which other child it can be.
+			for i, k := range node.Keys {
+				if key.K == k.K {
+					// TODO: DELETE OPERATION
+					fmt.Printf("Key %d found in node %v\n", key.K, node.Keys)
+					return
+				}
+
+				if key.K < k.K {
+					indexOfChildToMove = i
+					break
+				}
+			}
+		}
+	}
+
+	// If key not found in this node, we validate that the node has children and
+	// that the indexOfChildToMove is valid.
+	if indexOfChildToMove > -1 && indexOfChildToMove < len(node.Children) {
+		bt.delete(node.Children[indexOfChildToMove], key)
 	}
 }

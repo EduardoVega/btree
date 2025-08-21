@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
-
 	"btree/beetree"
-	"btree/gbtree"
 )
 
 func main() {
@@ -30,6 +27,8 @@ func main() {
 	bt.Insert(beetree.Key{K: 85})
 	bt.Insert(beetree.Key{K: 95})
 	bt.Insert(beetree.Key{K: 105})
+
+	bt.Delete(beetree.Key{K: 5})
 	// bt.Insert(beetree.Key{K: 20})
 	// bt.Insert(beetree.Key{K: 22})
 	// bt.Insert(beetree.Key{K: 9})
@@ -68,11 +67,11 @@ func main() {
 	// fmt.Println(bee)
 	bt.PrintInLevelOrder()
 
-	fmt.Println("--------------------")
+	// fmt.Println("--------------------")
 
 	// Google BTree
 	// startTime = time.Now()
-	gtree := gbtree.New(2)
+	// gtree := gbtree.New(2)
 	//	gtree.ReplaceOrInsert(gbtree.Int(50))
 	// gtree.ReplaceOrInsert(gbtree.Int(20))
 	// //gtree.ReplaceOrInsert(gbtree.Int(20))
@@ -83,16 +82,17 @@ func main() {
 	// gtree.ReplaceOrInsert(gbtree.Int(65))
 	// gtree.ReplaceOrInsert(gbtree.Int(69))
 
-	gtree.ReplaceOrInsert(gbtree.Int(44))
-	gtree.ReplaceOrInsert(gbtree.Int(4))
-	gtree.ReplaceOrInsert(gbtree.Int(28))
-	gtree.ReplaceOrInsert(gbtree.Int(3))
-	gtree.ReplaceOrInsert(gbtree.Int(15))
-	gtree.ReplaceOrInsert(gbtree.Int(30))
-	gtree.ReplaceOrInsert(gbtree.Int(48))
-	gtree.ReplaceOrInsert(gbtree.Int(17))
-	gtree.ReplaceOrInsert(gbtree.Int(38))
-	gtree.ReplaceOrInsert(gbtree.Int(23))
+	// gtree.ReplaceOrInsert(gbtree.Int(44))
+	// gtree.ReplaceOrInsert(gbtree.Int(4))
+	// gtree.ReplaceOrInsert(gbtree.Int(28))
+	// gtree.ReplaceOrInsert(gbtree.Int(3))
+	// gtree.ReplaceOrInsert(gbtree.Int(15))
+	// gtree.ReplaceOrInsert(gbtree.Int(30))
+	// gtree.ReplaceOrInsert(gbtree.Int(48))
+	// gtree.ReplaceOrInsert(gbtree.Int(17))
+	// gtree.ReplaceOrInsert(gbtree.Int(38))
+	// gtree.ReplaceOrInsert(gbtree.Int(23))
+
 	// gtree.ReplaceOrInsert(gbtree.Int(21))
 	// gtree.ReplaceOrInsert(gbtree.Int(20))
 	// gtree.ReplaceOrInsert(gbtree.Int(22))
@@ -111,6 +111,6 @@ func main() {
 	//gtree.ReplaceOrInsert(gbtree.Int(15))
 	// fmt.Println("Time:", time.Since(startTime))
 	// fmt.Println(gtree)
-	gtree.LevelOrderTraversalPrint()
+	// gtree.LevelOrderTraversalPrint()
 
 }
