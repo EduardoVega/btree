@@ -27,8 +27,28 @@ func main() {
 	bt.Insert(beetree.Key{K: 85})
 	bt.Insert(beetree.Key{K: 95})
 	bt.Insert(beetree.Key{K: 105})
+	bt.PrintInLevelOrder()
+
+	// Test left leaf deletion
+	// bt.Delete(beetree.Key{K: 25})
+	// bt.PrintInLevelOrder()
+
+	// bt.Delete(beetree.Key{K: 35})
+	// bt.PrintInLevelOrder()
+
+	// bt.Delete(beetree.Key{K: 30})
+	// bt.PrintInLevelOrder()
+
+	// Test right leaf deletion
+	bt.Delete(beetree.Key{K: 15})
+	bt.PrintInLevelOrder()
+
+	bt.Delete(beetree.Key{K: 10})
+	bt.PrintInLevelOrder()
 
 	bt.Delete(beetree.Key{K: 5})
+	bt.PrintInLevelOrder()
+
 	// bt.Insert(beetree.Key{K: 20})
 	// bt.Insert(beetree.Key{K: 22})
 	// bt.Insert(beetree.Key{K: 9})
@@ -65,7 +85,6 @@ func main() {
 
 	// fmt.Println("Time:", time.Since(startTime))
 	// fmt.Println(bee)
-	bt.PrintInLevelOrder()
 
 	// fmt.Println("--------------------")
 

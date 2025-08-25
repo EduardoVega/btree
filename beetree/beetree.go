@@ -5,10 +5,13 @@ import (
 )
 
 // CLRS B Trees
-// Degree (t) is min number of children a node can have.
-// 2t is max number of children a node can have.
-// t-1 is min number of keys a node can have.
-// 2t-1 is max number of keys a node can have.
+// Degree (t) is the min number of children a node can have.
+// 2t is the max number of children a node can have.
+// t-1 is the min number of keys a node can have.
+// 2t-1 is the max number of keys a node can have.
+// Root node can have min t-1 keya or 0 if no children.
+// Intermediary nodes must have min t-1 keys and t children.
+// Leaf nodes must have min t-1 keys.
 
 type Key struct {
 	K int
@@ -272,6 +275,23 @@ func (bt *BeeTree) printInLevelOrder(nodes []map[int]*Node) {
 	}
 }
 
+// find finds if the key is in the current node or finds the child node
+// to move to continue finding the key.
+func (bt *BeeTree) find(node *Node, key Key) (bool, int, int) {
+	for i, k := range node.Keys {
+		if key.K == k.K {
+			return true, i, 0
+		}
+
+		if key.K < k.K {
+			return false, 0, i
+		}
+	}
+
+	return false, 0, len(node.Keys)
+}
+
+// Delete deletes a key from the btree if found.
 func (bt *BeeTree) Delete(key Key) {
 	// If btree is empty, we return.
 	if bt.Root == nil {
@@ -283,38 +303,76 @@ func (bt *BeeTree) Delete(key Key) {
 
 func (bt *BeeTree) delete(node *Node, key Key) {
 	// Step one, find the node where key should be living.
-	// Initially, instead of looping through the list of keys, we check
-	// if the key is in the range of keys that the node has.
-	indexOfChildToMove := -1
-	if len(node.Keys) >= 1 {
-		// If key is smaller than the current range, we move to leftmost child (first child).
-		if key.K < node.Keys[0].K {
-			indexOfChildToMove = 0
-		} else if key.K > node.Keys[len(node.Keys)-1].K {
-			// If key is bigger than the current range, we move to rightmost child (last child).
-			// Remember that children are always +1 than keys. If we have 3 keys, there must be 4 children.
-			indexOfChildToMove = len(node.Keys)
-		} else {
-			// If key is not smaller or bigger than the current range of keys, we need
-			// to find if it is in this node or in which other child it can be.
-			for i, k := range node.Keys {
-				if key.K == k.K {
-					// TODO: DELETE OPERATION
-					fmt.Printf("Key %d found in node %v\n", key.K, node.Keys)
-					return
-				}
+	found, indexOfKey, indexOfChildToMove := bt.find(node, key)
 
-				if key.K < k.K {
-					indexOfChildToMove = i
-					break
+	// If found, we proceed with the deletion of the key.
+	if found {
+		// If node is a leaf node.
+		if len(node.Children) == 0 {
+			// We just delete the key and return. Parent node should check if node is
+			// underflow.
+			updatedKeys := append(make([]Key, 0, 2*bt.Degree-1), node.Keys[:indexOfKey]...)
+			if len(node.Keys)-1 > indexOfKey {
+				updatedKeys = append(updatedKeys, node.Keys[indexOfKey+1:]...)
+			}
+
+			node.Keys = updatedKeys
+		} else {
+			// Intermediary node.
+		}
+
+		return
+	} else {
+		// We validate that the node has children otherwise this means that the key is not
+		// in the btree.
+		if len(node.Children) > 0 {
+			bt.delete(node.Children[indexOfChildToMove], key)
+
+			// Once returns, we check if child node is underflow.
+			// If it is underflow, we redistribute or merge.
+			if len(node.Children[indexOfChildToMove].Keys) < bt.Degree-1 {
+				// Redistribution
+				// We find a sibling node with enough keys so that we borrow one of their
+				// keys.
+
+				// We use left sibling.
+				// If this is not the first child.
+				// If left sibling has enought keys.
+				if indexOfChildToMove > 0 && len(node.Children[indexOfChildToMove-1].Keys) > bt.Degree-1 {
+					// We get the key from the parent that will go to the underflow node.
+					parentKey := node.Keys[indexOfChildToMove-1]
+
+					underflowNode := node.Children[indexOfChildToMove]
+					underflowNode.insertInSortedOrder(parentKey)
+
+					leftSiblingNode := node.Children[indexOfChildToMove-1]
+					node.Keys[indexOfChildToMove-1] = leftSiblingNode.Keys[len(leftSiblingNode.Keys)-1]
+
+					leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
+
+					// We use right sibling.
+					// If this is not the last child.
+					// If rigth sibling has enought keys.
+				} else if indexOfChildToMove < len(node.Keys) && len(node.Children[indexOfChildToMove+1].Keys) > bt.Degree-1 {
+					parentKey := node.Keys[indexOfChildToMove]
+
+					underflowNode := node.Children[indexOfChildToMove]
+					underflowNode.insertInSortedOrder(parentKey)
+
+					rigthSiblingNode := node.Children[indexOfChildToMove+1]
+					node.Keys[indexOfChildToMove] = rigthSiblingNode.Keys[0]
+
+					rigthSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rigthSiblingNode.Keys[1:]...)
+
+					// Otherwise, we Merge.
+				} else {
+					// indexOfParentKeyToPull := indexOfChildToMove
+					// if indexOfChildToMove == len(node.Keys) {
+					// 	indexOfParentKeyToPull = indexOfChildToMove - 1
+					// }
+
 				}
 			}
 		}
-	}
-
-	// If key not found in this node, we validate that the node has children and
-	// that the indexOfChildToMove is valid.
-	if indexOfChildToMove > -1 && indexOfChildToMove < len(node.Children) {
-		bt.delete(node.Children[indexOfChildToMove], key)
 	}
 }
