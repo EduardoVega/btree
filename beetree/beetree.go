@@ -275,20 +275,23 @@ func (bt *BeeTree) printInLevelOrder(nodes []map[int]*Node) {
 	}
 }
 
-// find finds if the key is in the current node or finds the child node
-// to move to continue finding the key.
-func (bt *BeeTree) find(node *Node, key Key) (bool, int, int) {
+// find returns the index of the key if found in the current node or returns the index
+// of the child node where key could be stored.
+//
+// If index of key is -1, the key was not found in the current node and index of child should be used
+// to continue the finding.
+func (bt *BeeTree) find(node *Node, key Key) (int, int) {
 	for i, k := range node.Keys {
 		if key.K == k.K {
-			return true, i, 0
+			return i, -1
 		}
 
 		if key.K < k.K {
-			return false, 0, i
+			return -1, i
 		}
 	}
 
-	return false, 0, len(node.Keys)
+	return -1, len(node.Keys)
 }
 
 // Delete deletes a key from the btree if found.
@@ -302,77 +305,128 @@ func (bt *BeeTree) Delete(key Key) {
 }
 
 func (bt *BeeTree) delete(node *Node, key Key) {
-	// Step one, find the node where key should be living.
-	found, indexOfKey, indexOfChildToMove := bt.find(node, key)
+	// Find if the key is in the current node or in which child node it could be.
+	indexOfKey, indexOfChild := bt.find(node, key)
 
 	// If found, we proceed with the deletion of the key.
-	if found {
-		// If node is a leaf node.
+	if indexOfKey >= 0 {
+		// If node is a leaf node, it should not have children.
+		// We just delete the key and return. Parent node should check if node is
+		// underflow.
 		if len(node.Children) == 0 {
-			// We just delete the key and return. Parent node should check if node is
-			// underflow.
-			updatedKeys := append(make([]Key, 0, 2*bt.Degree-1), node.Keys[:indexOfKey]...)
-			if len(node.Keys)-1 > indexOfKey {
-				updatedKeys = append(updatedKeys, node.Keys[indexOfKey+1:]...)
-			}
-
-			node.Keys = updatedKeys
-		} else {
-			// Intermediary node.
-		}
-
-		return
-	} else {
-		// We validate that the node has children otherwise this means that the key is not
-		// in the btree.
-		if len(node.Children) > 0 {
-			bt.delete(node.Children[indexOfChildToMove], key)
-
-			// Once returns, we check if child node is underflow.
-			// If it is underflow, we redistribute or merge.
-			if len(node.Children[indexOfChildToMove].Keys) < bt.Degree-1 {
-				// Redistribution
-				// We find a sibling node with enough keys so that we borrow one of their
-				// keys.
-
-				// We use left sibling.
-				// If this is not the first child.
-				// If left sibling has enought keys.
-				if indexOfChildToMove > 0 && len(node.Children[indexOfChildToMove-1].Keys) > bt.Degree-1 {
-					// We get the key from the parent that will go to the underflow node.
-					parentKey := node.Keys[indexOfChildToMove-1]
-
-					underflowNode := node.Children[indexOfChildToMove]
-					underflowNode.insertInSortedOrder(parentKey)
-
-					leftSiblingNode := node.Children[indexOfChildToMove-1]
-					node.Keys[indexOfChildToMove-1] = leftSiblingNode.Keys[len(leftSiblingNode.Keys)-1]
-
-					leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
-
-					// We use right sibling.
-					// If this is not the last child.
-					// If rigth sibling has enought keys.
-				} else if indexOfChildToMove < len(node.Keys) && len(node.Children[indexOfChildToMove+1].Keys) > bt.Degree-1 {
-					parentKey := node.Keys[indexOfChildToMove]
-
-					underflowNode := node.Children[indexOfChildToMove]
-					underflowNode.insertInSortedOrder(parentKey)
-
-					rigthSiblingNode := node.Children[indexOfChildToMove+1]
-					node.Keys[indexOfChildToMove] = rigthSiblingNode.Keys[0]
-
-					rigthSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rigthSiblingNode.Keys[1:]...)
-
-					// Otherwise, we Merge.
-				} else {
-					// indexOfParentKeyToPull := indexOfChildToMove
-					// if indexOfChildToMove == len(node.Keys) {
-					// 	indexOfParentKeyToPull = indexOfChildToMove - 1
-					// }
-
+			newKeys := make([]Key, 0, 2*bt.Degree-1)
+			for i, k := range node.Keys {
+				if i != indexOfKey {
+					newKeys = append(newKeys, k)
 				}
 			}
+
+			node.Keys = newKeys
+			return
+		}
+
+		// If node has children, it is an intermediary node.
+		// TODO: implement deletion for intermediary nodes.
+		if len(node.Children) > 0 {
+			return
 		}
 	}
+
+	// If key is not in current node, we validate if the node has children otherwise this means that the key is not
+	// in the tree.
+	if len(node.Children) == 0 {
+		return
+	}
+
+	// We move to the child where the key could be located. This index of child was returned from the find function.
+	bt.delete(node.Children[indexOfChild], key)
+
+	// Once returns, we check if child node is underflow due to the deletion of a key.
+	// If not we return to finish the operation, otherwise if it is underflow, we redistribute or merge.
+	if len(node.Children[indexOfChild].Keys) >= bt.Degree-1 {
+		return
+	}
+
+	// Redistribution.
+	// We find a left or rigth sibling node with enough keys so that we borrow one of their
+	// keys that will be sent to the parent, and we take one from the parent for the underflow node.
+
+	// We borrow from left sibling.
+	// If this is not the first child.
+	// If left sibling has enought keys.
+	if indexOfChild > 0 && len(node.Children[indexOfChild-1].Keys) > bt.Degree-1 {
+		// We get the key from the parent that will go to the underflow node.
+		parentKey := node.Keys[indexOfChild-1]
+
+		underflowNode := node.Children[indexOfChild]
+		underflowNode.insertInSortedOrder(parentKey)
+
+		leftSiblingNode := node.Children[indexOfChild-1]
+		node.Keys[indexOfChild-1] = leftSiblingNode.Keys[len(leftSiblingNode.Keys)-1]
+
+		leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
+
+		return
+	}
+
+	// We use right sibling.
+	// If this is not the last child.
+	// If rigth sibling has enought keys.
+	if indexOfChild < len(node.Keys) && len(node.Children[indexOfChild+1].Keys) > bt.Degree-1 {
+		parentKey := node.Keys[indexOfChild]
+
+		underflowNode := node.Children[indexOfChild]
+		underflowNode.insertInSortedOrder(parentKey)
+
+		rigthSiblingNode := node.Children[indexOfChild+1]
+		node.Keys[indexOfChild] = rigthSiblingNode.Keys[0]
+
+		rigthSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rigthSiblingNode.Keys[1:]...)
+		return
+	}
+
+	// Merge
+	// If left and rigth sibling node do not have enough keys to share, we must merge the current node with one of the siblings
+	// and pull the separating key from the parent.
+	indexOfKeyToPull := indexOfChild
+	indexOfChild1 := indexOfChild
+	indexOfChild2 := indexOfChild + 1
+
+	// If this is the last child, we need to merge it with its
+	// left sibling, since it does not have rigth sibling.
+	if indexOfChild2 > len(node.Children) {
+		indexOfKeyToPull = indexOfChild - 1
+		indexOfChild1 = indexOfChild - 1
+		indexOfChild2 = indexOfChild
+	}
+
+	// Create the new child node with current, sibling and parent key.
+	mergedNode := NewNode(bt.Degree)
+	mergedNode.insertInSortedOrder(node.Keys[indexOfKeyToPull])
+
+	for _, k := range node.Children[indexOfChild1].Keys {
+		mergedNode.insertInSortedOrder(k)
+	}
+
+	for _, k := range node.Children[indexOfChild2].Keys {
+		mergedNode.insertInSortedOrder(k)
+	}
+
+	// Remove key from parent.
+	newKeys := append(make([]Key, 0, bt.Degree-1), node.Keys[:indexOfKeyToPull]...)
+	newKeys = append(newKeys, node.Keys[indexOfKeyToPull+1:]...)
+	node.Keys = newKeys
+
+	// Update child nodes.
+	newChildren := make([]*Node, 0, 2*bt.Degree)
+	for i, n := range node.Children {
+		if i == indexOfChild1 {
+			newChildren = append(newChildren, mergedNode)
+		}
+
+		if i < indexOfChild1 || i > indexOfChild2 {
+			newChildren = append(newChildren, n)
+		}
+	}
+	node.Children = newChildren
 }

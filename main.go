@@ -30,6 +30,7 @@ func main() {
 	bt.PrintInLevelOrder()
 
 	// Test left leaf deletion
+	// Redistribution
 	// bt.Delete(beetree.Key{K: 25})
 	// bt.PrintInLevelOrder()
 
@@ -40,13 +41,18 @@ func main() {
 	// bt.PrintInLevelOrder()
 
 	// Test right leaf deletion
-	bt.Delete(beetree.Key{K: 15})
-	bt.PrintInLevelOrder()
+	// Redistribution
+	// bt.Delete(beetree.Key{K: 15})
+	// bt.PrintInLevelOrder()
 
-	bt.Delete(beetree.Key{K: 10})
-	bt.PrintInLevelOrder()
+	// bt.Delete(beetree.Key{K: 10})
+	// bt.PrintInLevelOrder()
 
-	bt.Delete(beetree.Key{K: 5})
+	// bt.Delete(beetree.Key{K: 5})
+	// bt.PrintInLevelOrder()
+
+	// Test leaf merge
+	bt.Delete(beetree.Key{K: 85})
 	bt.PrintInLevelOrder()
 
 	// bt.Insert(beetree.Key{K: 20})
