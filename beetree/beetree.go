@@ -34,20 +34,28 @@ func NewNode(degree int) *Node {
 	}
 }
 
-func (n *Node) insertInSortedOrder(key Key) int {
+func (n *Node) insertKeyInSortedOrder(key Key) int {
 	for i, k := range n.Keys {
 		if key.K < k.K {
-			rigthKeys := make([]Key, len(n.Keys[i:]))
-			copy(rigthKeys, n.Keys[i:])
+			rightKeys := make([]Key, len(n.Keys[i:]))
+			copy(rightKeys, n.Keys[i:])
 
 			n.Keys = n.Keys[:i]
 			n.Keys = append(n.Keys, key)
-			n.Keys = append(n.Keys, rigthKeys...)
+			n.Keys = append(n.Keys, rightKeys...)
 			return i
 		}
 	}
 	n.Keys = append(n.Keys, key)
 	return len(n.Keys) - 1
+}
+
+func (n *Node) deleteKeyByIndex(index int) {
+	newKeys := n.Keys[:index]
+	if index < len(n.Keys)-1 {
+		newKeys = append(newKeys, n.Keys[index+1:]...)
+	}
+	n.Keys = newKeys
 }
 
 func NewBeetree(degree int) *BeeTree {
@@ -63,14 +71,14 @@ func (bt *BeeTree) Insert(key Key) {
 		return
 	}
 
-	newRigthChildNode, middleKey := bt.insert(bt.Root, key)
+	newrightChildNode, middleKey := bt.insert(bt.Root, key)
 	// If a key has been returned to root, it means the tree has grown and a new
 	// level must be created with a new root containing the returned key.
-	if newRigthChildNode != nil {
+	if newrightChildNode != nil {
 		newRootNode := NewNode(bt.Degree)
 		newRootNode.Keys = append(newRootNode.Keys, middleKey)
 		newRootNode.Children = append(newRootNode.Children, bt.Root)
-		newRootNode.Children = append(newRootNode.Children, newRigthChildNode)
+		newRootNode.Children = append(newRootNode.Children, newrightChildNode)
 		bt.Root = newRootNode
 	}
 }
@@ -79,7 +87,7 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	// This holds the index of the child node that was split and it is used
 	// to determine in what position to insert the new child node.
 	var indexOfSplitNode = -1
-	var newSplitRigthChildNode *Node
+	var newSplitrightChildNode *Node
 
 	// Check if key already exists in current node.
 	var keyExists bool
@@ -104,14 +112,14 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 				}
 			}
 
-			// If no index, new key is bigger than existing keys so we move to most rigth node.
+			// If no index, new key is bigger than existing keys so we move to most right node.
 			// Most right node should always exist since child nodes == keys+1
 			if indexOfSplitNode == -1 {
 				indexOfSplitNode = len(node.Keys)
 			}
 
-			newSplitRigthChildNode, key = bt.insert(node.Children[indexOfSplitNode], key)
-			if newSplitRigthChildNode == nil {
+			newSplitrightChildNode, key = bt.insert(node.Children[indexOfSplitNode], key)
+			if newSplitrightChildNode == nil {
 				return nil, Key{}
 			}
 		}
@@ -121,7 +129,7 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 		// contains the keys bigger than the middle key. These will be returned to the parent
 		// so that the middle can be inserted and new child node appended if it also has space
 		// otherwise parent is also split.
-		var newRigthChildNode *Node
+		var newrightChildNode *Node
 		if len(node.Keys) == 2*bt.Degree-1 {
 			// Store the middle key that needs to be sent upwards
 			// to the parent node.
@@ -129,10 +137,10 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 			middleKey := node.Keys[middleIndex]
 
 			// Create new child node with keys bigger than middle key and their children.
-			newRigthChildNode = NewNode(bt.Degree)
-			newRigthChildNode.Keys = append(newRigthChildNode.Keys, node.Keys[middleIndex+1:]...)
+			newrightChildNode = NewNode(bt.Degree)
+			newrightChildNode.Keys = append(newrightChildNode.Keys, node.Keys[middleIndex+1:]...)
 			if len(node.Children) >= middleIndex+1 {
-				newRigthChildNode.Children = append(newRigthChildNode.Children, node.Children[middleIndex+1:]...)
+				newrightChildNode.Children = append(newrightChildNode.Children, node.Children[middleIndex+1:]...)
 			}
 
 			// Set up existing node and update its keys to leave only smaller than middle key and their children.
@@ -145,36 +153,36 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 			// If new key is less than the middle key it should be in the
 			// left node otherwise in the right node.
 			if key.K < middleKey.K {
-				indexOfInsertedKey := node.insertInSortedOrder(key)
-				if newSplitRigthChildNode != nil {
+				indexOfInsertedKey := node.insertKeyInSortedOrder(key)
+				if newSplitrightChildNode != nil {
 					// Insert the split child at the correct position in the left node
 					insertPos := indexOfInsertedKey + 1
 					if insertPos < len(node.Children) {
 						node.Children = append(node.Children, nil)
 						copy(node.Children[insertPos+1:], node.Children[insertPos:])
-						node.Children[insertPos] = newSplitRigthChildNode
+						node.Children[insertPos] = newSplitrightChildNode
 					} else {
-						node.Children = append(node.Children, newSplitRigthChildNode)
+						node.Children = append(node.Children, newSplitrightChildNode)
 					}
 				}
 			} else {
-				indexOfInsertedKey := newRigthChildNode.insertInSortedOrder(key)
-				if newSplitRigthChildNode != nil {
+				indexOfInsertedKey := newrightChildNode.insertKeyInSortedOrder(key)
+				if newSplitrightChildNode != nil {
 					// Insert the split child at the correct position in the right node by
 					// using the index of the key that was inserted. The split child node should be
 					// inserted one position after the index of the key.
 					insertPos := indexOfInsertedKey + 1
-					if insertPos < len(newRigthChildNode.Children) {
-						newRigthChildNode.Children = append(newRigthChildNode.Children, nil)
-						copy(newRigthChildNode.Children[insertPos+1:], newRigthChildNode.Children[insertPos:])
-						newRigthChildNode.Children[insertPos] = newSplitRigthChildNode
+					if insertPos < len(newrightChildNode.Children) {
+						newrightChildNode.Children = append(newrightChildNode.Children, nil)
+						copy(newrightChildNode.Children[insertPos+1:], newrightChildNode.Children[insertPos:])
+						newrightChildNode.Children[insertPos] = newSplitrightChildNode
 					} else {
-						newRigthChildNode.Children = append(newRigthChildNode.Children, newSplitRigthChildNode)
+						newrightChildNode.Children = append(newrightChildNode.Children, newSplitrightChildNode)
 					}
 				}
 			}
 
-			return newRigthChildNode, middleKey
+			return newrightChildNode, middleKey
 		}
 	}
 
@@ -184,9 +192,9 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 	if keyExists {
 		node.Keys[indexOfDuplicatedKey] = key
 	} else {
-		indexOfInsertedKey := node.insertInSortedOrder(key)
+		indexOfInsertedKey := node.insertKeyInSortedOrder(key)
 
-		if newSplitRigthChildNode != nil {
+		if newSplitrightChildNode != nil {
 			// Insert the new split child at the correct position
 			// The new child should be inserted at indexOfInsertedKey + 1
 			insertPos := indexOfInsertedKey + 1
@@ -194,7 +202,7 @@ func (bt *BeeTree) insert(node *Node, key Key) (*Node, Key) {
 			// Make room for the new child
 			node.Children = append(node.Children, nil)
 			copy(node.Children[insertPos+1:], node.Children[insertPos:])
-			node.Children[insertPos] = newSplitRigthChildNode
+			node.Children[insertPos] = newSplitrightChildNode
 		}
 	}
 
@@ -302,6 +310,12 @@ func (bt *BeeTree) Delete(key Key) {
 	}
 
 	bt.delete(bt.Root, key)
+
+	// Check if current root must be replaced by its child
+	// If root has no keys but has one child, the child becomes the root.
+	if len(bt.Root.Keys) == 0 && len(bt.Root.Children) == 1 {
+		bt.Root = bt.Root.Children[0]
+	}
 }
 
 func (bt *BeeTree) delete(node *Node, key Key) {
@@ -325,9 +339,39 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 			return
 		}
 
-		// If node has children, it is an intermediary node.
-		// TODO: implement deletion for intermediary nodes.
+		// If node has children, it is an intermediate node.
 		if len(node.Children) > 0 {
+			// Check if predecessor key can be used without creating
+			// underflow.
+			preNode := bt.findPredecessor(node.Children[indexOfKey])
+			if len(preNode.Keys) > bt.Degree-1 {
+				node.deleteKeyByIndex(indexOfKey)
+				node.insertKeyInSortedOrder(preNode.Keys[len(preNode.Keys)-1])
+				preNode.deleteKeyByIndex(len(preNode.Keys) - 1)
+
+				return
+			}
+
+			// Check if sucessor key can be used without creating
+			// underflow.
+			sucNode := bt.findSuccessor(node.Children[indexOfKey+1])
+			if len(sucNode.Keys) > bt.Degree-1 {
+				// Replace deleted key with sucessor key.
+				node.deleteKeyByIndex(indexOfKey)
+				node.insertKeyInSortedOrder(sucNode.Keys[0])
+				sucNode.deleteKeyByIndex(0)
+
+				return
+			}
+
+			// If underflow can not be avoid, delete predecessor key
+			// from leaf node and then replace it for the deleted key in the
+			// intermediate node.
+			// TODO: FIX THIS IS NOT OK
+			preKey := preNode.Keys[len(preNode.Keys)-1]
+			bt.Delete(preKey)
+			node.Keys[indexOfKey] = preKey
+
 			return
 		}
 	}
@@ -348,7 +392,7 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 	}
 
 	// Redistribution.
-	// We find a left or rigth sibling node with enough keys so that we borrow one of their
+	// We find a left or right sibling node with enough keys so that we borrow one of their
 	// keys that will be sent to the parent, and we take one from the parent for the underflow node.
 
 	// We borrow from left sibling.
@@ -359,58 +403,66 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 		parentKey := node.Keys[indexOfChild-1]
 
 		underflowNode := node.Children[indexOfChild]
-		underflowNode.insertInSortedOrder(parentKey)
+		underflowNode.insertKeyInSortedOrder(parentKey)
 
 		leftSiblingNode := node.Children[indexOfChild-1]
 		node.Keys[indexOfChild-1] = leftSiblingNode.Keys[len(leftSiblingNode.Keys)-1]
 
-		leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
+		underflowNode.Children = append([]*Node{leftSiblingNode.Children[len(leftSiblingNode.Children)-1]}, underflowNode.Children...)
 
+		leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
+		leftSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), leftSiblingNode.Children[:len(leftSiblingNode.Children)-1]...)
 		return
 	}
 
 	// We use right sibling.
 	// If this is not the last child.
-	// If rigth sibling has enought keys.
+	// If right sibling has enought keys.
 	if indexOfChild < len(node.Keys) && len(node.Children[indexOfChild+1].Keys) > bt.Degree-1 {
 		parentKey := node.Keys[indexOfChild]
 
 		underflowNode := node.Children[indexOfChild]
-		underflowNode.insertInSortedOrder(parentKey)
+		underflowNode.insertKeyInSortedOrder(parentKey)
 
-		rigthSiblingNode := node.Children[indexOfChild+1]
-		node.Keys[indexOfChild] = rigthSiblingNode.Keys[0]
+		rightSiblingNode := node.Children[indexOfChild+1]
+		node.Keys[indexOfChild] = rightSiblingNode.Keys[0]
 
-		rigthSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rigthSiblingNode.Keys[1:]...)
+		underflowNode.Children = append(underflowNode.Children, rightSiblingNode.Children[0])
+
+		rightSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rightSiblingNode.Keys[1:]...)
+		rightSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), rightSiblingNode.Children[1:]...)
 		return
 	}
 
 	// Merge
-	// If left and rigth sibling node do not have enough keys to share, we must merge the current node with one of the siblings
+	// If left and right sibling node do not have enough keys to share, we must merge the child node with one of the siblings
 	// and pull the separating key from the parent.
 	indexOfKeyToPull := indexOfChild
 	indexOfChild1 := indexOfChild
 	indexOfChild2 := indexOfChild + 1
 
 	// If this is the last child, we need to merge it with its
-	// left sibling, since it does not have rigth sibling.
-	if indexOfChild2 > len(node.Children) {
+	// left sibling, since it does not have right sibling.
+	if indexOfChild2 == len(node.Children) {
 		indexOfKeyToPull = indexOfChild - 1
 		indexOfChild1 = indexOfChild - 1
 		indexOfChild2 = indexOfChild
 	}
 
-	// Create the new child node with current, sibling and parent key.
+	// Create the new child node with child, sibling and parent key.
+	// Insert parent key.
 	mergedNode := NewNode(bt.Degree)
-	mergedNode.insertInSortedOrder(node.Keys[indexOfKeyToPull])
+	mergedNode.insertKeyInSortedOrder(node.Keys[indexOfKeyToPull])
 
 	for _, k := range node.Children[indexOfChild1].Keys {
-		mergedNode.insertInSortedOrder(k)
+		mergedNode.insertKeyInSortedOrder(k)
 	}
+	mergedNode.Children = append(mergedNode.Children, node.Children[indexOfChild1].Children...)
 
 	for _, k := range node.Children[indexOfChild2].Keys {
-		mergedNode.insertInSortedOrder(k)
+		mergedNode.insertKeyInSortedOrder(k)
 	}
+	mergedNode.Children = append(mergedNode.Children, node.Children[indexOfChild2].Children...)
 
 	// Remove key from parent.
 	newKeys := append(make([]Key, 0, bt.Degree-1), node.Keys[:indexOfKeyToPull]...)
@@ -429,4 +481,26 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 		}
 	}
 	node.Children = newChildren
+}
+
+// findPredecessor finds the largest key on the left child of a node.
+func (bt *BeeTree) findPredecessor(node *Node) *Node {
+	// Check if this is a leaf node and return.
+	if len(node.Children) == 0 {
+		return node
+	}
+
+	// Move to right child.
+	return bt.findPredecessor(node.Children[len(node.Children)-1])
+}
+
+// findSuccessor finds the smallest key on the right child of a node.
+func (bt *BeeTree) findSuccessor(node *Node) *Node {
+	// Check if this is a leaf node and return.
+	if len(node.Children) == 0 {
+		return node
+	}
+
+	// Move to right child.
+	return bt.findSuccessor(node.Children[0])
 }

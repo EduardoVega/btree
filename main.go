@@ -52,7 +52,23 @@ func main() {
 	// bt.PrintInLevelOrder()
 
 	// Test leaf merge
+	// bt.Delete(beetree.Key{K: 85})
+	// bt.PrintInLevelOrder()
+
+	// Test intermediate key deletion
+	bt.Delete(beetree.Key{K: 20})
+	bt.Delete(beetree.Key{K: 10})
+	bt.Delete(beetree.Key{K: 15})
+	bt.Delete(beetree.Key{K: 25})
+	bt.Delete(beetree.Key{K: 5})
+
+	bt.Delete(beetree.Key{K: 105})
+	bt.Delete(beetree.Key{K: 95})
 	bt.Delete(beetree.Key{K: 85})
+	bt.Delete(beetree.Key{K: 75})
+
+	bt.Delete(beetree.Key{K: 55})
+
 	bt.PrintInLevelOrder()
 
 	// bt.Insert(beetree.Key{K: 20})
