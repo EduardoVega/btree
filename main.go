@@ -67,7 +67,7 @@ func main() {
 	bt.Delete(beetree.Key{K: 85})
 	bt.Delete(beetree.Key{K: 75})
 
-	bt.Delete(beetree.Key{K: 55})
+	bt.Delete(beetree.Key{K: 60})
 
 	bt.PrintInLevelOrder()
 

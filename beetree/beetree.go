@@ -58,6 +58,25 @@ func (n *Node) deleteKeyByIndex(index int) {
 	n.Keys = newKeys
 }
 
+// findIndexOfKey returns the index of the key if found in the current node or returns the index
+// of the child node where key could be stored.
+//
+// If index of key is -1, the key was not found in the current node and index of child should be used
+// to continue traversing the tree.
+func (n *Node) findIndexOfKey(key Key) (int, int) {
+	for i, k := range n.Keys {
+		if key.K == k.K {
+			return i, -1
+		}
+
+		if key.K < k.K {
+			return -1, i
+		}
+	}
+
+	return -1, len(n.Keys)
+}
+
 func NewBeetree(degree int) *BeeTree {
 	return &BeeTree{
 		Degree: degree,
@@ -283,25 +302,6 @@ func (bt *BeeTree) printInLevelOrder(nodes []map[int]*Node) {
 	}
 }
 
-// find returns the index of the key if found in the current node or returns the index
-// of the child node where key could be stored.
-//
-// If index of key is -1, the key was not found in the current node and index of child should be used
-// to continue the finding.
-func (bt *BeeTree) find(node *Node, key Key) (int, int) {
-	for i, k := range node.Keys {
-		if key.K == k.K {
-			return i, -1
-		}
-
-		if key.K < k.K {
-			return -1, i
-		}
-	}
-
-	return -1, len(node.Keys)
-}
-
 // Delete deletes a key from the btree if found.
 func (bt *BeeTree) Delete(key Key) {
 	// If btree is empty, we return.
@@ -320,14 +320,17 @@ func (bt *BeeTree) Delete(key Key) {
 
 func (bt *BeeTree) delete(node *Node, key Key) {
 	// Find if the key is in the current node or in which child node it could be.
-	indexOfKey, indexOfChild := bt.find(node, key)
+	indexOfKey, indexOfChild := node.findIndexOfKey(key)
 
-	// If found, we proceed with the deletion of the key.
+	// If the key is found in this node, we proceed with the deletion of the key
+	// and return.
+	// The parent node should check if node is underflow due to the deletion of one of its keys.
 	if indexOfKey >= 0 {
-		// If node is a leaf node, it should not have children.
-		// We just delete the key and return. Parent node should check if node is
-		// underflow.
+		// If node does not have children, it is a leaf node
+		// otherwise it is an internal node.
 		if len(node.Children) == 0 {
+			// For leaf nodes, we just delete the key and we let the
+			// recursive function to handle underflow nodes.
 			newKeys := make([]Key, 0, 2*bt.Degree-1)
 			for i, k := range node.Keys {
 				if i != indexOfKey {
@@ -337,10 +340,14 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 
 			node.Keys = newKeys
 			return
-		}
+		} else {
+			// For internal nodes, we need to replace the key to be deleted with a key
+			// from one of its predessesor or successor child nodes.
 
-		// If node has children, it is an intermediate node.
-		if len(node.Children) > 0 {
+			// If the leaf node does not underflow after the deletion of the key, we return.
+			// If the leaf node underflows, then from here we traverse the
+			// tree downwards to delete the key used for replacemenet from the leaf node.
+
 			// Check if predecessor key can be used without creating
 			// underflow.
 			preNode := bt.findPredecessor(node.Children[indexOfKey])
@@ -364,13 +371,28 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 				return
 			}
 
-			// If underflow can not be avoid, delete predecessor key
-			// from leaf node and then replace it for the deleted key in the
-			// intermediate node.
-			// TODO: FIX THIS IS NOT OK
+			// If underflow can not be avoided, replace leaf key for the deleted key in the
+			// internal node, then from current node traverse the tree to delete the key from the leaf node.
+			// First, we replace the key from leaf node to internal node (this deletes the key that was requested for
+			// deletion in the internal node).
 			preKey := preNode.Keys[len(preNode.Keys)-1]
-			bt.Delete(preKey)
 			node.Keys[indexOfKey] = preKey
+
+			// Then, we initiate the deletion from the predecessor child, so that we can get to the leaf node
+			// and delete the key used for replacement.
+			// We can not start from the current node, since it already has the key that we want to delete from the leaf node.
+			bt.delete(node.Children[indexOfKey], preKey)
+
+			// Redistribution.
+			// We find a left or right sibling node with enough keys so that we borrow one of their
+			// keys that will be sent to the parent, and we take one from the parent for the underflow node.
+			// If redistribute returns false, then we need to merge.
+			if !bt.redistribute(node, indexOfKey) {
+				// Merge.
+				// If left and right sibling node do not have enough keys to share, we must merge the child node with one of the siblings
+				// and pull the separating key from the parent.
+				bt.merge(node, indexOfKey)
+			}
 
 			return
 		}
@@ -394,7 +416,38 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 	// Redistribution.
 	// We find a left or right sibling node with enough keys so that we borrow one of their
 	// keys that will be sent to the parent, and we take one from the parent for the underflow node.
+	// If redistribute returns false, then we need to merge.
+	if !bt.redistribute(node, indexOfChild) {
+		// Merge.
+		// If left and right sibling node do not have enough keys to share, we must merge the child node with one of the siblings
+		// and pull the separating key from the parent.
+		bt.merge(node, indexOfChild)
+	}
+}
 
+// findPredecessor finds the largest key on the left child of a node.
+func (bt *BeeTree) findPredecessor(node *Node) *Node {
+	// Check if this is a leaf node and return.
+	if len(node.Children) == 0 {
+		return node
+	}
+
+	// Move to right child.
+	return bt.findPredecessor(node.Children[len(node.Children)-1])
+}
+
+// findSuccessor finds the smallest key on the right child of a node.
+func (bt *BeeTree) findSuccessor(node *Node) *Node {
+	// Check if this is a leaf node and return.
+	if len(node.Children) == 0 {
+		return node
+	}
+
+	// Move to right child.
+	return bt.findSuccessor(node.Children[0])
+}
+
+func (bt *BeeTree) redistribute(node *Node, indexOfChild int) bool {
 	// We borrow from left sibling.
 	// If this is not the first child.
 	// If left sibling has enought keys.
@@ -412,7 +465,8 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 
 		leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
 		leftSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), leftSiblingNode.Children[:len(leftSiblingNode.Children)-1]...)
-		return
+
+		return true
 	}
 
 	// We use right sibling.
@@ -431,12 +485,14 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 
 		rightSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rightSiblingNode.Keys[1:]...)
 		rightSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), rightSiblingNode.Children[1:]...)
-		return
+
+		return true
 	}
 
-	// Merge
-	// If left and right sibling node do not have enough keys to share, we must merge the child node with one of the siblings
-	// and pull the separating key from the parent.
+	return false
+}
+
+func (bt *BeeTree) merge(node *Node, indexOfChild int) {
 	indexOfKeyToPull := indexOfChild
 	indexOfChild1 := indexOfChild
 	indexOfChild2 := indexOfChild + 1
@@ -481,26 +537,4 @@ func (bt *BeeTree) delete(node *Node, key Key) {
 		}
 	}
 	node.Children = newChildren
-}
-
-// findPredecessor finds the largest key on the left child of a node.
-func (bt *BeeTree) findPredecessor(node *Node) *Node {
-	// Check if this is a leaf node and return.
-	if len(node.Children) == 0 {
-		return node
-	}
-
-	// Move to right child.
-	return bt.findPredecessor(node.Children[len(node.Children)-1])
-}
-
-// findSuccessor finds the smallest key on the right child of a node.
-func (bt *BeeTree) findSuccessor(node *Node) *Node {
-	// Check if this is a leaf node and return.
-	if len(node.Children) == 0 {
-		return node
-	}
-
-	// Move to right child.
-	return bt.findSuccessor(node.Children[0])
 }
