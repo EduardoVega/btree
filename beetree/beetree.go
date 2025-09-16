@@ -461,10 +461,13 @@ func (bt *BeeTree) redistribute(node *Node, indexOfChild int) bool {
 		leftSiblingNode := node.Children[indexOfChild-1]
 		node.Keys[indexOfChild-1] = leftSiblingNode.Keys[len(leftSiblingNode.Keys)-1]
 
-		underflowNode.Children = append([]*Node{leftSiblingNode.Children[len(leftSiblingNode.Children)-1]}, underflowNode.Children...)
+		// Only move children if the nodes have children (not leaf nodes)
+		if len(leftSiblingNode.Children) > 0 {
+			underflowNode.Children = append([]*Node{leftSiblingNode.Children[len(leftSiblingNode.Children)-1]}, underflowNode.Children...)
+			leftSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), leftSiblingNode.Children[:len(leftSiblingNode.Children)-1]...)
+		}
 
 		leftSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), leftSiblingNode.Keys[:len(leftSiblingNode.Keys)-1]...)
-		leftSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), leftSiblingNode.Children[:len(leftSiblingNode.Children)-1]...)
 
 		return true
 	}
@@ -481,10 +484,13 @@ func (bt *BeeTree) redistribute(node *Node, indexOfChild int) bool {
 		rightSiblingNode := node.Children[indexOfChild+1]
 		node.Keys[indexOfChild] = rightSiblingNode.Keys[0]
 
-		underflowNode.Children = append(underflowNode.Children, rightSiblingNode.Children[0])
+		// Only move children if the nodes have children (not leaf nodes)
+		if len(rightSiblingNode.Children) > 0 {
+			underflowNode.Children = append(underflowNode.Children, rightSiblingNode.Children[0])
+			rightSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), rightSiblingNode.Children[1:]...)
+		}
 
 		rightSiblingNode.Keys = append(make([]Key, 0, 2*bt.Degree-1), rightSiblingNode.Keys[1:]...)
-		rightSiblingNode.Children = append(make([]*Node, 0, 2*bt.Degree), rightSiblingNode.Children[1:]...)
 
 		return true
 	}

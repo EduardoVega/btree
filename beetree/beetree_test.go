@@ -824,6 +824,569 @@ func TestTriggerAdjustedIndexWithSpecificKeys(t *testing.T) {
 	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
 }
 
+// Helper function to build a tree with specific keys for testing
+func buildTreeWithKeys(degree int, keys []int) *BeeTree {
+	tree := NewBeetree(degree)
+	for _, k := range keys {
+		tree.Insert(Key{K: k})
+	}
+	return tree
+}
+
+// Helper function to check if a key exists in the tree
+func treeContainsKey(tree *BeeTree, key int) bool {
+	result := tree.Get(key)
+	return result.K == key
+}
+
+// Helper function to get tree height
+func getTreeHeight(node *Node) int {
+	if node == nil || len(node.Children) == 0 {
+		return 1
+	}
+	return 1 + getTreeHeight(node.Children[0])
+}
+
+// Helper function to count total nodes in tree
+func countNodes(node *Node) int {
+	if node == nil {
+		return 0
+	}
+	count := 1
+	for _, child := range node.Children {
+		count += countNodes(child)
+	}
+	return count
+}
+
+// TestDeleteEmptyTree tests deleting from an empty tree
+func TestDeleteEmptyTree(t *testing.T) {
+	tree := NewBeetree(3)
+	
+	// Delete from empty tree should not panic
+	tree.Delete(Key{K: 10})
+	
+	// Tree should remain empty
+	if tree.Root != nil {
+		t.Errorf("Expected tree to remain empty after delete from empty tree")
+	}
+}
+
+// TestDeleteNonExistentKey tests deleting a key that doesn't exist
+func TestDeleteNonExistentKey(t *testing.T) {
+	tree := buildTreeWithKeys(3, []int{10, 20, 30, 40, 50})
+	originalKeys := collectKeysInOrder(tree.Root)
+	
+	// Delete non-existent key
+	tree.Delete(Key{K: 100})
+	
+	// Tree should remain unchanged
+	newKeys := collectKeysInOrder(tree.Root)
+	if len(newKeys) != len(originalKeys) {
+		t.Errorf("Tree changed after deleting non-existent key")
+	}
+	
+	for i, key := range originalKeys {
+		if newKeys[i] != key {
+			t.Errorf("Tree structure changed after deleting non-existent key")
+		}
+	}
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+}
+
+// TestDeleteFromSingleNodeLeaf tests deleting from a tree with only root node
+func TestDeleteFromSingleNodeLeaf(t *testing.T) {
+	tree := buildTreeWithKeys(3, []int{10, 20, 30})
+	
+	// Delete middle key
+	tree.Delete(Key{K: 20})
+	
+	// Verify key was deleted
+	if treeContainsKey(tree, 20) {
+		t.Errorf("Key 20 should have been deleted")
+	}
+	
+	// Verify remaining keys
+	keys := collectKeysInOrder(tree.Root)
+	expected := []int{10, 30}
+	if len(keys) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(keys))
+	}
+	
+	for i, key := range expected {
+		if keys[i] != key {
+			t.Errorf("Expected key %d at position %d, got %d", key, i, keys[i])
+		}
+	}
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+}
+
+// TestDeleteAllKeysFromSingleNode tests deleting all keys from root
+func TestDeleteAllKeysFromSingleNode(t *testing.T) {
+	tree := buildTreeWithKeys(3, []int{10})
+	
+	// Delete the only key
+	tree.Delete(Key{K: 10})
+	
+	// Tree should still have root but with no keys
+	if tree.Root == nil {
+		t.Errorf("Root should not be nil after deleting all keys")
+	}
+	
+	if len(tree.Root.Keys) != 0 {
+		t.Errorf("Root should have no keys after deleting all, got %d", len(tree.Root.Keys))
+	}
+	
+	// Verify key was actually deleted
+	if treeContainsKey(tree, 10) {
+		t.Errorf("Key 10 should have been deleted")
+	}
+}
+
+// TestDeleteLeafNodeNoUnderflow tests deleting from leaf nodes without causing underflow
+func TestDeleteLeafNodeNoUnderflow(t *testing.T) {
+	// Create tree with degree 3 (min keys = 2, max keys = 5)
+	tree := buildTreeWithKeys(3, []int{10, 20, 30, 40, 50, 60, 70, 80, 90})
+	
+	// Find a leaf node with more than minimum keys
+	originalKeys := collectKeysInOrder(tree.Root)
+	
+	// Delete a key that should be in a leaf
+	tree.Delete(Key{K: 90})
+	
+	// Verify key was deleted
+	if treeContainsKey(tree, 90) {
+		t.Errorf("Key 90 should have been deleted")
+	}
+	
+	// Verify tree structure is maintained
+	newKeys := collectKeysInOrder(tree.Root)
+	if len(newKeys) != len(originalKeys)-1 {
+		t.Errorf("Expected %d keys after deletion, got %d", len(originalKeys)-1, len(newKeys))
+	}
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+}
+
+// TestDeleteInternalNodeWithPredecessor tests deleting from internal node using predecessor
+func TestDeleteInternalNodeWithPredecessor(t *testing.T) {
+	// Build a tree where we can control the structure
+	tree := buildTreeWithKeys(3, []int{10, 20, 30, 40, 50, 60, 70, 80, 90, 100})
+	
+	originalKeys := collectKeysInOrder(tree.Root)
+	
+	// Delete a key that should be in an internal node
+	// This should trigger predecessor replacement
+	tree.Delete(Key{K: 50})
+	
+	// Verify key was deleted
+	if treeContainsKey(tree, 50) {
+		t.Errorf("Key 50 should have been deleted")
+	}
+	
+	// Verify correct number of keys remain
+	newKeys := collectKeysInOrder(tree.Root)
+	if len(newKeys) != len(originalKeys)-1 {
+		t.Errorf("Expected %d keys after deletion, got %d", len(originalKeys)-1, len(newKeys))
+	}
+	
+	// Verify all other keys are still present
+	for _, key := range originalKeys {
+		if key != 50 && !treeContainsKey(tree, key) {
+			t.Errorf("Key %d should still be present after deleting 50", key)
+		}
+	}
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+}
+
+// TestDeleteInternalNodeWithSuccessor tests deleting from internal node using successor
+func TestDeleteInternalNodeWithSuccessor(t *testing.T) {
+	// Build a tree structure where successor will be used
+	tree := buildTreeWithKeys(3, []int{5, 10, 15, 20, 25, 30, 35, 40, 45, 50})
+	
+	originalKeys := collectKeysInOrder(tree.Root)
+	
+	// Delete a key from internal node
+	tree.Delete(Key{K: 20})
+	
+	// Verify key was deleted
+	if treeContainsKey(tree, 20) {
+		t.Errorf("Key 20 should have been deleted")
+	}
+	
+	// Verify tree integrity
+	newKeys := collectKeysInOrder(tree.Root)
+	if len(newKeys) != len(originalKeys)-1 {
+		t.Errorf("Expected %d keys after deletion, got %d", len(originalKeys)-1, len(newKeys))
+	}
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+}
+
+// TestDeleteCausingRedistributionFromLeft tests deletion causing redistribution from left sibling
+func TestDeleteCausingRedistributionFromLeft(t *testing.T) {
+	// Create a specific tree structure for testing left redistribution
+	tree := NewBeetree(3)
+	keys := []int{10, 20, 30, 40, 50, 60, 70}
+	for _, k := range keys {
+		tree.Insert(Key{K: k})
+	}
+	
+	// Delete a key to cause underflow that can be fixed by left redistribution
+	tree.Delete(Key{K: 70})
+	tree.Delete(Key{K: 60}) // This should cause redistribution
+	
+	// Verify tree properties are maintained
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	
+	// Verify keys are still accessible
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expected := []int{10, 20, 30, 40, 50}
+	
+	if len(remainingKeys) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(remainingKeys))
+	}
+	
+	for i, key := range expected {
+		if remainingKeys[i] != key {
+			t.Errorf("Expected key %d at position %d, got %d", key, i, remainingKeys[i])
+		}
+	}
+}
+
+// TestDeleteCausingRedistributionFromRight tests deletion causing redistribution from right sibling
+func TestDeleteCausingRedistributionFromRight(t *testing.T) {
+	tree := NewBeetree(3)
+	keys := []int{10, 20, 30, 40, 50, 60, 70}
+	for _, k := range keys {
+		tree.Insert(Key{K: k})
+	}
+	
+	// Delete keys to cause underflow that requires right redistribution
+	tree.Delete(Key{K: 10})
+	tree.Delete(Key{K: 20}) // This should cause redistribution from right
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expected := []int{30, 40, 50, 60, 70}
+	
+	if len(remainingKeys) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(remainingKeys))
+	}
+	
+	for i, key := range expected {
+		if remainingKeys[i] != key {
+			t.Errorf("Expected key %d at position %d, got %d", key, i, remainingKeys[i])
+		}
+	}
+}
+
+// TestDeleteCausingMerge tests deletion that causes node merging
+func TestDeleteCausingMerge(t *testing.T) {
+	tree := NewBeetree(3)
+	
+	// Create a tree structure that will require merging
+	keys := []int{10, 20, 30, 40, 50, 60}
+	for _, k := range keys {
+		tree.Insert(Key{K: k})
+	}
+	
+	originalNodeCount := countNodes(tree.Root)
+	
+	// Delete keys to force merge
+	tree.Delete(Key{K: 60})
+	tree.Delete(Key{K: 50})
+	tree.Delete(Key{K: 40})
+	
+	// Verify merge occurred (fewer nodes)
+	newNodeCount := countNodes(tree.Root)
+	if newNodeCount >= originalNodeCount {
+		t.Logf("Original node count: %d, New node count: %d", originalNodeCount, newNodeCount)
+		// Note: This is just informational, actual merge behavior depends on tree structure
+	}
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expected := []int{10, 20, 30}
+	
+	if len(remainingKeys) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(remainingKeys))
+	}
+	
+	for i, key := range expected {
+		if remainingKeys[i] != key {
+			t.Errorf("Expected key %d at position %d, got %d", key, i, remainingKeys[i])
+		}
+	}
+}
+
+// TestDeleteCausingRootChange tests deletion that changes the root
+func TestDeleteCausingRootChange(t *testing.T) {
+	tree := NewBeetree(3)
+	
+	// Build tree and then delete enough to potentially change root
+	keys := []int{10, 20, 30, 40, 50}
+	for _, k := range keys {
+		tree.Insert(Key{K: k})
+	}
+	
+	originalHeight := getTreeHeight(tree.Root)
+	
+	// Delete most keys
+	tree.Delete(Key{K: 10})
+	tree.Delete(Key{K: 20})
+	tree.Delete(Key{K: 30})
+	
+	newHeight := getTreeHeight(tree.Root)
+	
+	verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expected := []int{40, 50}
+	
+	if len(remainingKeys) != len(expected) {
+		t.Errorf("Expected %d keys, got %d", len(expected), len(remainingKeys))
+	}
+	
+	t.Logf("Tree height changed from %d to %d", originalHeight, newHeight)
+}
+
+// TestDeleteSequential tests deleting keys in sequential order
+func TestDeleteSequential(t *testing.T) {
+	tree := buildTreeWithKeys(3, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+	
+	// Delete keys 1 through 10
+	for i := 1; i <= 10; i++ {
+		tree.Delete(Key{K: i})
+		
+		// Verify key was deleted
+		if treeContainsKey(tree, i) {
+			t.Errorf("Key %d should have been deleted", i)
+		}
+		
+		// Verify tree properties after each deletion
+		verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	}
+	
+	// Verify remaining keys
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expected := []int{11, 12, 13, 14, 15}
+	
+	if len(remainingKeys) != len(expected) {
+		t.Errorf("Expected %d keys remaining, got %d", len(expected), len(remainingKeys))
+	}
+	
+	for i, key := range expected {
+		if remainingKeys[i] != key {
+			t.Errorf("Expected key %d at position %d, got %d", key, i, remainingKeys[i])
+		}
+	}
+}
+
+// TestDeleteReverseSequential tests deleting keys in reverse order
+func TestDeleteReverseSequential(t *testing.T) {
+	tree := buildTreeWithKeys(3, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})
+	
+	// Delete keys 15 down to 6
+	for i := 15; i >= 6; i-- {
+		tree.Delete(Key{K: i})
+		
+		// Verify key was deleted
+		if treeContainsKey(tree, i) {
+			t.Errorf("Key %d should have been deleted", i)
+		}
+		
+		// Verify tree properties after each deletion
+		verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	}
+	
+	// Verify remaining keys
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expected := []int{1, 2, 3, 4, 5}
+	
+	if len(remainingKeys) != len(expected) {
+		t.Errorf("Expected %d keys remaining, got %d", len(expected), len(remainingKeys))
+	}
+	
+	for i, key := range expected {
+		if remainingKeys[i] != key {
+			t.Errorf("Expected key %d at position %d, got %d", key, i, remainingKeys[i])
+		}
+	}
+}
+
+// TestDeleteRandomOrder tests deleting keys in random order
+func TestDeleteRandomOrder(t *testing.T) {
+	const numKeys = 50
+	tree := NewBeetree(4)
+	
+	// Insert keys 1 through numKeys
+	allKeys := make([]int, numKeys)
+	for i := 0; i < numKeys; i++ {
+		allKeys[i] = i + 1
+		tree.Insert(Key{K: i + 1})
+	}
+	
+	// Create random permutation for deletion
+	deleteOrder := rand.Perm(numKeys)
+	
+	// Delete half the keys in random order
+	keysToDelete := numKeys / 2
+	deletedKeys := make(map[int]bool)
+	
+	for i := 0; i < keysToDelete; i++ {
+		keyToDelete := deleteOrder[i] + 1
+		tree.Delete(Key{K: keyToDelete})
+		deletedKeys[keyToDelete] = true
+		
+		// Verify key was deleted
+		if treeContainsKey(tree, keyToDelete) {
+			t.Errorf("Key %d should have been deleted", keyToDelete)
+		}
+		
+		// Verify tree properties
+		verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+	}
+	
+	// Verify remaining keys
+	remainingKeys := collectKeysInOrder(tree.Root)
+	expectedRemaining := numKeys - keysToDelete
+	
+	if len(remainingKeys) != expectedRemaining {
+		t.Errorf("Expected %d keys remaining, got %d", expectedRemaining, len(remainingKeys))
+	}
+	
+	// Verify that only non-deleted keys remain
+	for _, key := range remainingKeys {
+		if deletedKeys[key] {
+			t.Errorf("Deleted key %d should not be present", key)
+		}
+	}
+	
+	// Verify all non-deleted keys are present
+	for i := 1; i <= numKeys; i++ {
+		if !deletedKeys[i] && !treeContainsKey(tree, i) {
+			t.Errorf("Non-deleted key %d should be present", i)
+		}
+	}
+}
+
+// TestDeleteDifferentDegrees tests delete operation with different B-tree degrees
+func TestDeleteDifferentDegrees(t *testing.T) {
+	degrees := []int{2, 3, 4, 5, 10}
+	numKeys := 30
+	
+	for _, degree := range degrees {
+		t.Run(fmt.Sprintf("Degree_%d", degree), func(t *testing.T) {
+			tree := NewBeetree(degree)
+			
+			// Insert keys
+			for i := 1; i <= numKeys; i++ {
+				tree.Insert(Key{K: i})
+			}
+			
+			// Delete every other key
+			for i := 2; i <= numKeys; i += 2 {
+				tree.Delete(Key{K: i})
+				verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+			}
+			
+			// Verify only odd keys remain
+			remainingKeys := collectKeysInOrder(tree.Root)
+			expectedCount := numKeys / 2
+			
+			if len(remainingKeys) != expectedCount {
+				t.Errorf("Expected %d keys remaining, got %d", expectedCount, len(remainingKeys))
+			}
+			
+			for i, key := range remainingKeys {
+				expected := (i * 2) + 1
+				if key != expected {
+					t.Errorf("Expected key %d at position %d, got %d", expected, i, key)
+				}
+			}
+		})
+	}
+}
+
+// TestDeleteAllKeys tests deleting all keys from a tree
+func TestDeleteAllKeys(t *testing.T) {
+	tree := buildTreeWithKeys(3, []int{10, 20, 30, 40, 50, 60, 70, 80, 90, 100})
+	originalKeys := collectKeysInOrder(tree.Root)
+	
+	// Delete all keys
+	for _, key := range originalKeys {
+		tree.Delete(Key{K: key})
+		
+		// Verify key was deleted
+		if treeContainsKey(tree, key) {
+			t.Errorf("Key %d should have been deleted", key)
+		}
+		
+		// Verify tree properties if tree is not empty
+		if tree.Root != nil && len(tree.Root.Keys) > 0 {
+			verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+		}
+	}
+	
+	// Verify tree is empty or has empty root
+	if tree.Root != nil && len(tree.Root.Keys) > 0 {
+		t.Errorf("Tree should be empty after deleting all keys, but has %d keys", len(tree.Root.Keys))
+	}
+}
+
+// TestDeleteComplexScenario tests a complex scenario with multiple operations
+func TestDeleteComplexScenario(t *testing.T) {
+	tree := NewBeetree(3)
+	
+	// Insert a larger set of keys
+	insertKeys := []int{5, 15, 25, 35, 45, 55, 65, 75, 85, 95, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100}
+	for _, k := range insertKeys {
+		tree.Insert(Key{K: k})
+	}
+	
+	// Delete keys in a specific pattern to test various scenarios
+	deletePattern := []int{
+		50,  // Internal node
+		25,  // May cause redistribution
+		75,  // May cause merge
+		10,  // Leaf node
+		90,  // Another pattern
+		35,  // Test predecessor/successor
+		65,  // Continue testing
+	}
+	
+	for _, keyToDelete := range deletePattern {
+		if treeContainsKey(tree, keyToDelete) {
+			tree.Delete(Key{K: keyToDelete})
+			
+			// Verify deletion
+			if treeContainsKey(tree, keyToDelete) {
+				t.Errorf("Key %d should have been deleted", keyToDelete)
+			}
+			
+			// Verify tree properties
+			verifyBTreeProperties(t, tree, tree.Root, tree.Degree, true)
+		}
+	}
+	
+	// Verify final state
+	finalKeys := collectKeysInOrder(tree.Root)
+	t.Logf("Final tree has %d keys", len(finalKeys))
+	
+	// Ensure all remaining keys are in sorted order
+	for i := 1; i < len(finalKeys); i++ {
+		if finalKeys[i-1] >= finalKeys[i] {
+			t.Errorf("Tree keys not in sorted order: %d >= %d", finalKeys[i-1], finalKeys[i])
+		}
+	}
+}
+
 func BenchmarkInsert(b *testing.B) {
 	b.StopTimer()
 	insertP := perm(benchmarkTreeSize)
@@ -838,5 +1401,25 @@ func BenchmarkInsert(b *testing.B) {
 				return
 			}
 		}
+	}
+}
+
+func BenchmarkDelete(b *testing.B) {
+	b.StopTimer()
+	
+	// Pre-build tree for deletion benchmark
+	tree := NewBeetree(btreeDegree)
+	keys := perm(benchmarkTreeSize)
+	for _, item := range keys {
+		tree.Insert(item)
+	}
+	
+	deleteOrder := perm(benchmarkTreeSize)
+	b.StartTimer()
+	
+	i := 0
+	for i < b.N && i < len(deleteOrder) {
+		tree.Delete(deleteOrder[i])
+		i++
 	}
 }
